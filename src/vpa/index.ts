@@ -1,8 +1,13 @@
-import QRCode from 'qrcodejs';
+import * as QRCode from 'qrcode';
 
 const vpa = "greatwarrior@upi";
 const name = "Great Warrior";
-let qrObj: QRCode | null = null;
+let initialized = false;
+let inputEl: HTMLInputElement | null = null;
+let clearBtnEl: HTMLElement | null = null;
+let displayEl: HTMLElement | null = null;
+let qrContainerEl: HTMLElement | null = null;
+let canvasEl: HTMLCanvasElement | null = null;
 
 function getUpiString(amount: number) {
     let str = `upi://pay?pa=${vpa}&pn=${encodeURIComponent(name)}&cu=INR`;
@@ -12,53 +17,113 @@ function getUpiString(amount: number) {
     return str;
 }
 
-function refreshQR() {
-    const input: HTMLInputElement = document.getElementById('amtInput') as HTMLInputElement;
-    const amt = input.value;
-    const display: HTMLElement = document.getElementById('valText') as HTMLElement;
-    const clearBtn: HTMLButtonElement = document.getElementById('clearBtn') as HTMLButtonElement;
-
-    // Toggle Clear Icon
-    clearBtn.style.display = amt.length > 0 ? "block" : "none";
-
-    if (amt && Number(amt) > 0) {
-        display.innerHTML = `Paying <span class="highlight">₹${parseFloat(amt).toFixed(2)}</span>`;
-    } else {
-        display.innerHTML = "";
+function ensureCanvas(): HTMLCanvasElement | null {
+    if (!qrContainerEl) return null;
+    if (!canvasEl) {
+        canvasEl = document.createElement('canvas');
+        qrContainerEl.innerHTML = "";
+        qrContainerEl.appendChild(canvasEl);
     }
+    return canvasEl;
+}
 
-    if (qrObj) {
-        qrObj.makeCode(getUpiString(parseFloat(amt)));
+async function drawQR(amount: number) {
+    const canvas = ensureCanvas();
+    if (!canvas) return;
+
+    const value = getUpiString(amount > 0 ? amount : 0);
+
+    try {
+        await QRCode.toCanvas(canvas, value, {
+            width: 200,
+            margin: 1,
+        });
+    } catch {
+        // swallow errors to avoid breaking the UI
     }
 }
 
-window.onload = function () {
-    qrObj = new QRCode(document.getElementById("qrcode") as HTMLElement, {
-        text: getUpiString(0),
-        width: 200,
-        height: 200,
-        correctLevel: QRCode.CorrectLevel.M
-    });
+function refreshQR() {
+    if (!inputEl || !displayEl || !clearBtnEl) return;
 
-    const input: HTMLInputElement = document.getElementById('amtInput') as HTMLInputElement;
-    const clearBtn: HTMLButtonElement = document.getElementById('clearBtn') as HTMLButtonElement;
+    const amtStr = inputEl.value.trim();
 
-    // Typing event to show/hide clear icon
-    input.addEventListener('input', refreshQR);
+    // Toggle Clear Icon
+    clearBtnEl.style.display = amtStr.length > 0 ? "block" : "none";
 
-    input.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.keyCode === 13) {
+    const amt = parseFloat(amtStr);
+
+    if (amtStr && !Number.isNaN(amt) && amt > 0) {
+        displayEl.innerHTML = `Paying <span class="highlight">₹${amt.toFixed(2)}</span>`;
+    } else {
+        displayEl.innerHTML = "";
+    }
+
+    void drawQR(!Number.isNaN(amt) && amt > 0 ? amt : 0);
+}
+
+type InitParams = {
+    qrElement: HTMLElement | null;
+    input: HTMLInputElement | null;
+    clearBtn: HTMLElement | null;
+    display: HTMLElement | null;
+};
+
+export function initVpa({ qrElement, input, clearBtn, display }: InitParams): () => void {
+    if (initialized || !qrElement || !input || !clearBtn || !display) {
+        return () => {};
+    }
+
+    initialized = true;
+    inputEl = input;
+    clearBtnEl = clearBtn;
+    displayEl = display;
+    qrContainerEl = qrElement;
+
+    const handleInput = () => refreshQR();
+    const handleKeydown = (e: KeyboardEvent) => {
+        const event = e as KeyboardEvent & { keyCode?: number };
+        if (event.key === 'Enter' || event.keyCode === 13) {
             refreshQR();
             input.blur();
         }
-    });
-
-    // Clear button logic
-    clearBtn.addEventListener('click', function () {
+    };
+    const handleClearClick = () => {
         input.value = "";
         refreshQR();
         input.focus();
-    });
+    };
+    const handleChange = () => refreshQR();
 
-    input.addEventListener('change', refreshQR);
-};
+    // Typing event to show/hide clear icon
+    input.addEventListener('input', handleInput);
+    input.addEventListener('keydown', handleKeydown);
+
+    // Clear button logic
+    clearBtn.addEventListener('click', handleClearClick);
+
+    input.addEventListener('change', handleChange);
+
+    // Initial state
+    refreshQR();
+
+    return () => {
+        if (!inputEl || !clearBtnEl) return;
+
+        inputEl.removeEventListener('input', handleInput);
+        inputEl.removeEventListener('keydown', handleKeydown);
+        inputEl.removeEventListener('change', handleChange);
+        clearBtnEl.removeEventListener('click', handleClearClick);
+
+        if (qrContainerEl) {
+            qrContainerEl.innerHTML = "";
+        }
+
+        inputEl = null;
+        clearBtnEl = null;
+        displayEl = null;
+        qrContainerEl = null;
+        canvasEl = null;
+        initialized = false;
+    };
+}
