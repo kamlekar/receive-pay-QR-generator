@@ -1,19 +1,21 @@
 import { useUpiQR } from '../hooks/useUpiQR';
+import { VpaAutocomplete } from './VpaAutocomplete';
 import { AmountInput } from './AmountInput';
 import { PaymentDisplay } from './PaymentDisplay';
 import { QRCodeDisplay } from './QRCodeDisplay';
 
 type PaymentCardProps = {
   vpa: string;
+  onVpaChange: (vpa: string) => void;
   recipientName: string;
 };
 
-export function PaymentCard({ vpa, recipientName }: PaymentCardProps) {
+export function PaymentCard({ vpa, onVpaChange, recipientName }: PaymentCardProps) {
   const { amount, setAmount, qrDataUrl } = useUpiQR(vpa, recipientName);
 
   return (
     <div className="card">
-      <div className="upi-id">To: {vpa}</div>
+      <VpaAutocomplete value={vpa} onChange={onVpaChange} />
 
       <QRCodeDisplay dataUrl={qrDataUrl} />
 

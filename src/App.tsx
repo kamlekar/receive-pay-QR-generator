@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { PaymentCard } from './components/PaymentCard';
 
 function App() {
+  const [vpa, setVpa] = useState<string>("greatwarrior@upi");
+
   return (
     <PaymentCard 
-      vpa="greatwarrior@upi" 
+      vpa={vpa} 
+      onVpaChange={setVpa}
       recipientName="Great Warrior" 
     />
   );
