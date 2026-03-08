@@ -30,18 +30,18 @@ export function GenericAutocomplete({
       freeSolo
       options={options}
       value={value}
-      onChange={(_event: React.SyntheticEvent, newValue: string | null) => {
+      onChange={(_event, newValue) => {
         onChange(newValue as string || '');
       }}
       onInputChange={(_event: React.SyntheticEvent, newInputValue: string) => {
         onChange(newInputValue);
       }}
       renderInput={(params: import('@mui/material/Autocomplete').AutocompleteRenderInputParams) => (
-        <TextField 
-          {...params} 
-          label={label} 
+        <TextField
+          {...params}
+          label={label}
           placeholder={placeholder}
-          variant="outlined" 
+          variant="outlined"
           fullWidth
         />
       )}
